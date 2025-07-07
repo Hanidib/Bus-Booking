@@ -16,8 +16,22 @@ class BookingController extends Controller
 
     public function store(BookingRequest $request)
     {
-        $booking = Booking::create($request->validated());
-        return response()->json(['message' => 'Booking created', 'data' => $booking], 201);
+        $validatedData = $request->validated();
+        
+        // Check if the seat is already booked for the same date
+        $existingBooking = Booking::where('seatId', $validatedData['seatId'])
+            ->whereDate('bookingDate', $validatedData['bookingDate'])
+            ->first();
+            
+        if ($existingBooking) {
+            return response()->json([
+                'error' => 'Seat is already booked for this date',
+                'existing_booking_id' => $existingBooking->bookingId
+            ], 409); // 409 Conflict
+        }
+        
+        $booking = Booking::create($validatedData);
+        return response()->json(['message' => 'Booking created successfully', 'data' => $booking], 201);
     }
 
     public function show($id)
