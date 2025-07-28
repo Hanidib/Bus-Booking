@@ -15,6 +15,7 @@ class Bus extends Model
         'busNumber',
         'busType',
         'totalSeats',
+        'routeId',
     ];
 
     public function admin()
@@ -24,7 +25,7 @@ class Bus extends Model
 
     public function route()
     {
-        return $this->hasOne(Route::class, 'busId', 'busId');
+        return $this->belongsTo(Route::class, 'busId', 'busId');
     }
 
     public function seats()

@@ -1,74 +1,49 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Bus;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\BusRequest;
+use App\Models\Seat;
 
 class BusController extends Controller
 {
     public function index()
     {
-        $buses = Bus::all();
-        return response()->json($buses);
+        return response()->json(Bus::with('seats')->get());
     }
 
-    public function store(Request $request)
+    public function store(BusRequest $request)
     {
-        $request->validate([
-            'busNumber' => 'required|unique:buses,busNumber',
-            'busType' => 'required|string',
-            'totalSeats' => 'required|integer|min:1',
-        ]);
-
-        $bus = Bus::create([
-            'busNumber' => $request->busNumber,
-            'busType' => $request->busType,
-            'totalSeats' => $request->totalSeats,
-        ]);
-
-        return response()->json([
-            'message' => 'Bus created successfully.',
-            'bus' => $bus
-        ], 201);
+        $bus = Bus::create($request->validated());
+        return response()->json($bus, 201);
     }
 
-    public function show($id)
+    public function show(Bus $bus)
     {
-        $bus = Bus::findOrFail($id);
+        return response()->json($bus->load('seats'));
+    }
+
+    public function update(BusRequest $request, Bus $bus)
+    {
+        $bus->update($request->validated());
         return response()->json($bus);
     }
 
-    public function update(Request $request, $id)
+    public function destroy(Bus $bus)
     {
-        $bus = Bus::findOrFail($id);
 
-        $request->validate([
-            'busNumber' => 'required|unique:buses,busNumber,' . $bus->busId . ',busId',
-            'busType' => 'required|string',
-            'totalSeats' => 'required|integer|min:1',
-        ]);
-
-        $bus->update([
-            'busNumber' => $request->busNumber,
-            'busType' => $request->busType,
-            'totalSeats' => $request->totalSeats,
-        ]);
-
-        return response()->json([
-            'message' => 'Bus updated successfully.',
-            'bus' => $bus
-        ]);
+        $bus->seats()->delete();
+        $bus->delete();
+        return response()->json(['message' => 'Bus deleted successfully']);
     }
 
-    public function destroy($id)
+    public function availableSeats($busId)
     {
-        $bus = Bus::findOrFail($id);
-        $bus->delete();
-
-        return response()->json([
-            'message' => 'Bus deleted successfully.'
-        ]);
+        $seats = Seat::where('busId', $busId)
+            ->where('isAvailable', true)
+            ->get();
+        return response()->json($seats);
     }
 }

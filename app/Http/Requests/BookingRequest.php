@@ -16,7 +16,9 @@ class BookingRequest extends FormRequest
         return [
             'userId' => 'required|exists:users,userId',
             'seatId' => 'required|exists:seats,seatId',
+            'routeId' => 'required|exists:routes,routeId',
             'bookingDate' => 'required|date',
+            'status' => 'required|string',
         ];
     }
 }

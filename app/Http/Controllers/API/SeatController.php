@@ -1,41 +1,38 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\API;
 
+use App\Models\Seat;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SeatRequest;
-use App\Models\Seat;
 
 class SeatController extends Controller
 {
     public function index()
     {
-        return response()->json(Seat::all());
+        return response()->json(Seat::with('bus')->get());
     }
 
     public function store(SeatRequest $request)
     {
         $seat = Seat::create($request->validated());
-        return response()->json(['message' => 'Seat created', 'data' => $seat], 201);
+        return response()->json($seat, 201);
     }
 
-    public function show($id)
+    public function show(Seat $seat)
     {
-        $seat = Seat::findOrFail($id);
+        return response()->json($seat->load('bus'));
+    }
+
+    public function update(SeatRequest $request, Seat $seat)
+    {
+        $seat->update($request->validated());
         return response()->json($seat);
     }
 
-    public function update(SeatRequest $request, $id)
+    public function destroy(Seat $seat)
     {
-        $seat = Seat::findOrFail($id);
-        $seat->update($request->validated());
-        return response()->json(['message' => 'Seat updated', 'data' => $seat]);
-    }
-
-    public function destroy($id)
-    {
-        $seat = Seat::findOrFail($id);
         $seat->delete();
-        return response()->json(['message' => 'Seat deleted']);
+        return response()->json(['message' => 'Seat has been deleted'], 200);
     }
 }

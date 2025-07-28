@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>User Registration</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-100 py-10 px-4">
+        <div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-md">
+            <h2 class="text-2xl font-bold mb-6 text-center">Register</h2>
+            <form id="registerForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium"
+                            >First Name</label
+                        >
+                        <input
+                            type="text"
+                            name="firstName"
+                            required
+                            class="w-full border border-gray-300 rounded px-3 py-2"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium"
+                            >Last Name</label
+                        >
+                        <input
+                            type="text"
+                            name="lastName"
+                            required
+                            class="w-full border border-gray-300 rounded px-3 py-2"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium">Email</label>
+                    <input
+                        type="email"
+                        name="email"
+                        required
+                        class="w-full border border-gray-300 rounded px-3 py-2"
+                    />
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium">Rank</label>
+                        <input
+                            type="text"
+                            name="rank"
+                            class="w-full border border-gray-300 rounded px-3 py-2"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium"
+                            >Military ID</label
+                        >
+                        <input
+                            type="number"
+                            name="militaryId"
+                            class="w-full border border-gray-300 rounded px-3 py-2"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium"
+                        >Phone Number</label
+                    >
+                    <input
+                        type="text"
+                        name="phoneNumber"
+                        class="w-full border border-gray-300 rounded px-3 py-2"
+                    />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium">Address</label>
+                    <input
+                        type="text"
+                        name="address"
+                        class="w-full border border-gray-300 rounded px-3 py-2"
+                    />
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium"
+                            >Password</label
+                        >
+                        <input
+                            type="password"
+                            name="password"
+                            required
+                            class="w-full border border-gray-300 rounded px-3 py-2"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium"
+                            >Confirm Password</label
+                        >
+                        <input
+                            type="password"
+                            name="password_confirmation"
+                            required
+                            class="w-full border border-gray-300 rounded px-3 py-2"
+                        />
+                    </div>
+                </div>
+
+                <div
+                    id="errorMessage"
+                    class="text-red-500 text-sm hidden"
+                ></div>
+                <div
+                    id="successMessage"
+                    class="text-green-600 text-sm hidden"
+                ></div>
+
+                <button
+                    type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                >
+                    Register
+                </button>
+                <p class="text-center text-sm text-gray-600 mt-4">
+                    Have already an account?
+                    <a href="login.html" class="text-blue-600 hover:underline"
+                        >Login here</a
+                    >
+                </p>
+            </form>
+        </div>
+
+        <script>
+            const form = document.getElementById("registerForm");
+            const errorMessage = document.getElementById("errorMessage");
+            const successMessage = document.getElementById("successMessage");
+
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault();
+
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+
+                try {
+                    const response = await fetch(
+                        "http://localhost:8000/api/user/register",
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(data),
+                        }
+                    );
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        // Show validation or API error
+                        errorMessage.textContent =
+                            result.message || "Registration failed.";
+                        errorMessage.classList.remove("hidden");
+                        successMessage.classList.add("hidden");
+                    } else {
+                        // Registration successful - redirect to login page
+                        window.location.href = "login.html";
+                    }
+                } catch (error) {
+                    errorMessage.textContent =
+                        "Something went wrong. Try again later.";
+                    errorMessage.classList.remove("hidden");
+                }
+            });
+        </script>
+    </body>
+</html>

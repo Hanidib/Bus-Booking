@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Admin Dashboard - Bus Booking System</title>
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+        <style>
+            .action-buttons {
+                white-space: nowrap;
+            }
+            .loading-spinner {
+                display: none;
+                width: 2rem;
+                height: 2rem;
+                border: 0.25em solid currentColor;
+                border-right-color: transparent;
+            }
+            .table-hover tbody tr:hover {
+                background-color: rgba(0, 0, 0, 0.075);
+            }
+
+            .action-buttons {
+                white-space: nowrap;
+            }
+            .loading-spinner {
+                display: none;
+                width: 2rem;
+                height: 2rem;
+                border: 0.25em solid currentColor;
+                border-right-color: transparent;
+            }
+            .table-hover tbody tr:hover {
+                background-color: rgba(0, 0, 0, 0.075);
+            }
+            .header-container {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1rem;
+            }
+        </style>
+    </head>
+    <body class="bg-light">
+        <div class="container py-4">
+            <div class="header-container">
+                <h2 class="text-primary">Admin Dashboard</h2>
+                <button class="btn btn-danger" onclick="logout()">
+                    Logout
+                </button>
+            </div>
+
+            <div class="mb-3">
+                <select id="entitySelect" class="form-select">
+                    <option value="users">Users</option>
+                    <option value="buses">Buses</option>
+                    <option value="routes">Routes</option>
+                    <option value="seats">Seats</option>
+                    <option value="bookings">Bookings</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <button class="btn btn-success" onclick="fetchData()">
+                    <span
+                        id="fetchSpinner"
+                        class="spinner-border spinner-border-sm d-none"
+                    ></span>
+                    Get All
+                </button>
+                <button class="btn btn-primary" onclick="showCreateForm()">
+                    Create New
+                </button>
+            </div>
+
+            <div id="errorAlert" class="alert alert-danger d-none"></div>
+            <div id="successAlert" class="alert alert-success d-none"></div>
+            <div id="dataTable" class="table-responsive"></div>
+        </div>
+
+        <!-- Modal -->
+        <div
+            class="modal fade"
+            id="createModal"
+            tabindex="-1"
+            aria-labelledby="createModalLabel"
+            aria-hidden="true"
+        >
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <form id="createForm" onsubmit="return createItem(event)">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="createModalLabel">
+                                Create New
+                            </h5>
+                            <button
+                                type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Close"
+                            ></button>
+                        </div>
+                        <div class="modal-body" id="createModalBody"></div>
+                        <div class="modal-footer">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                data-bs-dismiss="modal"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                class="btn btn-primary"
+                                id="modalSubmitBtn"
+                            >
+                                <span
+                                    id="submitSpinner"
+                                    class="spinner-border spinner-border-sm d-none"
+                                ></span>
+                                <span id="modalSubmitText">Create</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            const API_BASE = "http://127.0.0.1:8000/api";
+            let currentEntity = "users";
+            let isEdit = false;
+            let editId = null;
+            const ID_FIELDS = {
+                users: "userId",
+                buses: "busId",
+                routes: "routeId",
+                seats: "seatId",
+                bookings: "bookingId",
+            };
+
+            // Initialize on page load
+            document.addEventListener("DOMContentLoaded", function () {
+                document
+                    .getElementById("entitySelect")
+                    .addEventListener("change", (e) => {
+                        currentEntity = e.target.value;
+                        fetchData();
+                    });
+                fetchData();
+            });
+
+            function showError(message) {
+                const errorAlert = document.getElementById("errorAlert");
+                errorAlert.textContent = message;
+                errorAlert.classList.remove("d-none");
+                setTimeout(() => errorAlert.classList.add("d-none"), 5000);
+            }
+
+            function showSuccess(message) {
+                const successAlert = document.getElementById("successAlert");
+                successAlert.textContent = message;
+                successAlert.classList.remove("d-none");
+                setTimeout(() => successAlert.classList.add("d-none"), 5000);
+            }
+
+            async function fetchData() {
+                const fetchBtn = document.querySelector(".btn-success");
+                const spinner = document.getElementById("fetchSpinner");
+
+                try {
+                    fetchBtn.disabled = true;
+                    spinner.classList.remove("d-none");
+
+                    const res = await fetch(`${API_BASE}/${currentEntity}`);
+
+                    if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({}));
+                        throw new Error(
+                            errorData.message ||
+                                `Failed to fetch ${currentEntity}`
+                        );
+                    }
+
+                    const data = await res.json();
+                    renderTable(data);
+                } catch (e) {
+                    console.error("Fetch error:", e);
+                    showError("Error: " + e.message);
+                } finally {
+                    fetchBtn.disabled = false;
+                    spinner.classList.add("d-none");
+                }
+            }
+
+            function renderTable(data) {
+                const container = document.getElementById("dataTable");
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = `<p>No ${currentEntity} found.</p>`;
+                    return;
+                }
+
+                // Special handling for different entity types
+                switch (currentEntity) {
+                    case "buses":
+                        container.innerHTML = createBusesTable(data);
+                        return;
+                    case "seats":
+                        container.innerHTML = createSeatsTable(data);
+                        return;
+                    case "bookings":
+                        container.innerHTML = createBookingsTable(data);
+                        return;
+                    default:
+                        container.innerHTML = createDefaultTable(data);
+                        return;
+                }
+            }
+
+            function createBusesTable(buses) {
+                return `
+        <table class="table table-bordered table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Bus ID</th>
+                    <th>Bus Number</th>
+                    <th>Type</th>
+                    <th>Total Seats</th>
+                    <th>Assigned Seats</th>
+                    <th>Route ID</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${buses
+                    .map(
+                        (bus) => `
+                    <tr>
+                        <td>${escapeHtml(bus.busId)}</td>
+                        <td>${escapeHtml(bus.busNumber)}</td>
+                        <td>${escapeHtml(bus.busType)}</td>
+                        <td>${escapeHtml(bus.totalSeats)}</td>
+                        <td>${bus.seats ? bus.seats.length : 0}</td>
+                        <td>${escapeHtml(bus.routeId)}</td>
+                        <td class="action-buttons">
+                            <button class="btn btn-warning btn-sm me-2" onclick="editItem('${
+                                bus.busId
+                            }')">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteItem('${
+                                bus.busId
+                            }')">Delete</button>
+                        </td>
+                    </tr>
+                `
+                    )
+                    .join("")}
+            </tbody>
+        </table>
+    `;
+            }
+
+            function createSeatsTable(seats) {
+                return `
+        <table class="table table-bordered table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Seat ID</th>
+                    <th>Seat Number</th>
+                    <th>Bus</th>
+                    <th>Availability</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${seats
+                    .map(
+                        (seat) => `
+                    <tr>
+                        <td>${escapeHtml(seat.seatId)}</td>
+                        <td>${escapeHtml(seat.seatNumber)}</td>
+                        <td>${
+                            seat.bus
+                                ? `Bus #${escapeHtml(seat.bus.busNumber)}`
+                                : "N/A"
+                        }</td>
+                        <td>${
+                            seat.isAvailable ? "✅ Available" : "❌ Unavailable"
+                        }</td>
+                        <td class="action-buttons">
+                            <button class="btn btn-warning btn-sm me-2" onclick="editItem('${
+                                seat.seatId
+                            }')">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteItem('${
+                                seat.seatId
+                            }')">Delete</button>
+                        </td>
+                    </tr>
+                `
+                    )
+                    .join("")}
+            </tbody>
+        </table>
+    `;
+            }
+            async function createBookingsTable(bookings) {
+                // First fetch all buses to create a mapping of busId to busNumber
+                let busesMap = {};
+                try {
+                    const busesResponse = await fetch(`${API_BASE}/buses`);
+                    if (busesResponse.ok) {
+                        const buses = await busesResponse.json();
+                        buses.forEach((bus) => {
+                            busesMap[bus.busId] = bus.busNumber;
+                        });
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch buses:", e);
+                }
+
+                return `
+        <table class="table table-bordered table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Booking ID</th>
+                    <th>User</th>
+                    <th>Seat</th>
+                    <th>Bus</th>
+                    <th>Route</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${bookings
+                    .map((booking) => {
+                        // Get bus information from our map
+                        const busNumber =
+                            booking.seat && booking.seat.busId
+                                ? busesMap[booking.seat.busId] ||
+                                  `ID: ${booking.seat.busId}`
+                                : "N/A";
+
+                        return `
+                    <tr>
+                        <td>${escapeHtml(booking.bookingId)}</td>
+                        <td>${
+                            booking.user
+                                ? `${escapeHtml(
+                                      booking.user.firstName
+                                  )} ${escapeHtml(booking.user.lastName)}`
+                                : "N/A"
+                        }</td>
+                        <td>${
+                            booking.seat
+                                ? `Seat ${escapeHtml(booking.seat.seatNumber)}`
+                                : "N/A"
+                        }</td>
+                        <td>${busNumber}</td>
+                        <td>${
+                            booking.route
+                                ? `${escapeHtml(
+                                      booking.route.departure
+                                  )} → ${escapeHtml(booking.route.destination)}`
+                                : "N/A"
+                        }</td>
+                        <td>${escapeHtml(booking.bookingDate || "N/A")}</td>
+                        <td>${escapeHtml(booking.status || "N/A")}</td>
+                        <td class="action-buttons">
+                            <button class="btn btn-warning btn-sm me-2" onclick="editItem('${
+                                booking.bookingId
+                            }')">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteItem('${
+                                booking.bookingId
+                            }')">Delete</button>
+                        </td>
+                    </tr>
+                    `;
+                    })
+                    .join("")}
+            </tbody>
+        </table>
+    `;
+            }
+
+            function createDefaultTable(data) {
+                const idField =
+                    ID_FIELDS[currentEntity] ||
+                    Object.keys(data[0]).find((key) =>
+                        key.toLowerCase().includes("id")
+                    ) ||
+                    "id";
+
+                // Exclude nested objects from default table display
+                const keys = Object.keys(data[0]).filter((key) => {
+                    return key !== idField && typeof data[0][key] !== "object";
+                });
+
+                return `
+        <table class="table table-bordered table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    ${keys.map((k) => `<th>${capitalize(k)}</th>`).join("")}
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data
+                    .map((item) => {
+                        const idValue = item[idField];
+                        return `
+                        <tr>
+                            <td>${escapeHtml(idValue)}</td>
+                            ${keys
+                                .map(
+                                    (k) => `
+                                <td>${escapeHtml(
+                                    item[k] !== null
+                                        ? item[k].toString()
+                                        : "NULL"
+                                )}</td>
+                            `
+                                )
+                                .join("")}
+                            <td class="action-buttons">
+                                <button class="btn btn-warning btn-sm me-2" onclick="editItem('${idValue}')">Edit</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteItem('${idValue}')">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                    })
+                    .join("")}
+            </tbody>
+        </table>
+    `;
+            }
+
+            // Helper functions
+            function capitalize(str) {
+                return str.charAt(0).toUpperCase() + str.slice(1);
+            }
+
+            function escapeHtml(text) {
+                if (text === null || text === undefined) return "";
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // Special table for bookings showing related objects
+            function createBookingsTable(bookings) {
+                return `
+        <table class="table table-bordered table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Booking ID</th>
+                    <th>User</th>
+                    <th>Seat</th>
+                    <th>Route</th>
+                    <th>Booking Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${bookings
+                    .map(
+                        (booking) => `
+                    <tr>
+                        <td>${escapeHtml(booking.bookingId)}</td>
+                        <td>${
+                            booking.user
+                                ? `${escapeHtml(
+                                      booking.user.firstName
+                                  )} ${escapeHtml(
+                                      booking.user.lastName
+                                  )} (ID: ${escapeHtml(booking.user.userId)})`
+                                : "N/A"
+                        }</td>
+                        <td>${
+                            booking.seat
+                                ? `Seat ${escapeHtml(
+                                      booking.seat.seatNumber
+                                  )} (Bus: ${
+                                      booking.seat.bus
+                                          ? escapeHtml(
+                                                booking.seat.bus.busNumber
+                                            )
+                                          : "N/A"
+                                  })`
+                                : "N/A"
+                        }</td>
+                        <td>${
+                            booking.route
+                                ? `${escapeHtml(
+                                      booking.route.departure
+                                  )} → ${escapeHtml(
+                                      booking.route.destination
+                                  )} (ID: ${escapeHtml(booking.route.routeId)})`
+                                : "N/A"
+                        }</td>
+                        <td>${escapeHtml(booking.bookingDate || "N/A")}</td>
+                        <td>${escapeHtml(booking.status || "N/A")}</td>
+                        <td class="action-buttons">
+                            <button class="btn btn-warning btn-sm me-2" onclick="editItem('${
+                                booking.bookingId
+                            }')">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteItem('${
+                                booking.bookingId
+                            }')">Delete</button>
+                        </td>
+                    </tr>
+                `
+                    )
+                    .join("")}
+            </tbody>
+        </table>
+    `;
+            }
+
+            // Update your createItem function for proper data handling
+            async function createItem(event) {
+                event.preventDefault();
+                const form = event.target;
+                const submitBtn = document.getElementById("modalSubmitBtn");
+                const spinner = document.getElementById("submitSpinner");
+                const submitText = document.getElementById("modalSubmitText");
+
+                try {
+                    // Disable button and show spinner
+                    if (submitBtn) submitBtn.disabled = true;
+                    if (spinner) spinner.classList.remove("d-none");
+                    if (submitText)
+                        submitText.textContent = isEdit
+                            ? "Updating..."
+                            : "Creating...";
+
+                    const formData = new FormData(form);
+                    let data = Object.fromEntries(formData.entries());
+
+                    // Special handling for seats
+                    if (currentEntity === "seats") {
+                        data = {
+                            busId: parseInt(data.busId),
+                            seatNumber: data.seatNumber,
+                            isAvailable: data.isAvailable === "true",
+                        };
+                    }
+                    // Special handling for bookings
+                    else if (currentEntity === "bookings") {
+                        data = {
+                            userId: parseInt(data.userId),
+                            seatId: parseInt(data.seatId),
+                            routeId: parseInt(data.routeId),
+                            bookingDate: data.bookingDate,
+                            status: data.status,
+                        };
+                    }
+
+                    // For updates, include the ID
+                    if (isEdit) {
+                        data[ID_FIELDS[currentEntity]] = editId;
+                    }
+
+                    const url = isEdit
+                        ? `${API_BASE}/${currentEntity}/${editId}`
+                        : `${API_BASE}/${currentEntity}`;
+
+                    const method = isEdit ? "PUT" : "POST";
+
+                    const res = await fetch(url, {
+                        method,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                        },
+                        body: JSON.stringify(data),
+                    });
+
+                    const responseData = await res.json();
+
+                    if (!res.ok) {
+                        if (responseData.errors) {
+                            const errorMessages = Object.values(
+                                responseData.errors
+                            )
+                                .flat()
+                                .join("\n");
+                            throw new Error(errorMessages);
+                        }
+                        throw new Error(
+                            responseData.message || `${method} request failed`
+                        );
+                    }
+
+                    // Success - close modal and refresh data
+                    const modal = bootstrap.Modal.getInstance(
+                        document.getElementById("createModal")
+                    );
+                    if (modal) modal.hide();
+
+                    showSuccess(
+                        `${capitalize(currentEntity)} ${
+                            isEdit ? "updated" : "created"
+                        } successfully`
+                    );
+                    fetchData();
+                } catch (e) {
+                    console.error("Create/Update error:", e);
+                    showError("Error: " + e.message);
+                } finally {
+                    // Re-enable button and hide spinner
+                    if (submitBtn) submitBtn.disabled = false;
+                    if (spinner) spinner.classList.add("d-none");
+                    if (submitText)
+                        submitText.textContent = isEdit ? "Update" : "Create";
+                }
+                return false;
+            }
+
+            function showCreateForm() {
+                isEdit = false;
+                editId = null;
+                const modalTitle = document.getElementById("createModalLabel");
+                const submitText = document.getElementById("modalSubmitText");
+
+                modalTitle.textContent = `Create New ${capitalize(
+                    currentEntity
+                )}`;
+                if (submitText) submitText.textContent = "Create";
+                document.getElementById("createModalBody").innerHTML =
+                    getFormFields(currentEntity, {});
+
+                const modal = new bootstrap.Modal(
+                    document.getElementById("createModal")
+                );
+                modal.show();
+            }
+
+            function getFormFields(entity, data) {
+                data = data || {};
+                const idField = ID_FIELDS[entity] || "id";
+
+                switch (entity) {
+                    case "users":
+                        return `
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">First Name</label>
+                            <input class="form-control" name="firstName" value="${escapeHtml(
+                                data.firstName || ""
+                            )}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name</label>
+                            <input class="form-control" name="lastName" value="${escapeHtml(
+                                data.lastName || ""
+                            )}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Rank</label>
+                            <input class="form-control" name="rank" value="${escapeHtml(
+                                data.rank || ""
+                            )}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Military ID</label>
+                            <input class="form-control" name="militaryId" value="${escapeHtml(
+                                data.militaryId || ""
+                            )}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone Number</label>
+                            <input class="form-control" name="phoneNumber" value="${escapeHtml(
+                                data.phoneNumber || ""
+                            )}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input class="form-control" type="email" name="email" value="${escapeHtml(
+                                data.email || ""
+                            )}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Address</label>
+                            <input class="form-control" name="address" value="${escapeHtml(
+                                data.address || ""
+                            )}" required>
+                        </div>
+                        ${
+                            !isEdit
+                                ? `
+                        <div class="col-md-6">
+                            <label class="form-label">Password</label>
+                            <input class="form-control" type="password" name="password" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Confirm Password</label>
+                            <input class="form-control" type="password" name="password_confirmation" required>
+                        </div>
+                        `
+                                : ""
+                        }
+                    </div>
+                    `;
+
+                    case "buses":
+                        return `
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Bus Number</label>
+            <input class="form-control" name="busNumber" value="${escapeHtml(
+                data.busNumber || ""
+            )}" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Bus Type</label>
+            <input class="form-control" name="busType" value="${escapeHtml(
+                data.busType || ""
+            )}" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Total Seats</label>
+            <input class="form-control" type="number" name="totalSeats" value="${escapeHtml(
+                data.totalSeats || ""
+            )}" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Route ID</label>
+            <input class="form-control" type="number" name="routeId" value="${escapeHtml(
+                data.routeId || ""
+            )}" required>
+        </div>
+    </div>
+    `;
+
+                    case "routes":
+                        return `
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Departure</label>
+            <input class="form-control" name="departure" value="${escapeHtml(
+                data.departure || ""
+            )}" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Destination</label>
+            <input class="form-control" name="destination" value="${escapeHtml(
+                data.destination || ""
+            )}" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Departure Date</label>
+            <input class="form-control" type="date" name="departureDate" value="${escapeHtml(
+                data.departureDate || ""
+            )}" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Departure Time</label>
+            <input class="form-control" type="time" name="departureTime" 
+                   value="${escapeHtml(data.departureTime || "00:00")}" 
+                   min="00:00" max="23:59" step="60" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Available Seats</label>
+            <input class="form-control" type="number" name="availableSeats" value="${escapeHtml(
+                data.availableSeats || ""
+            )}" min="1" required>
+        </div>
+    </div>
+    `;
+                    case "seats":
+                        return `
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Bus ID</label>
+            <input class="form-control" type="number" name="busId" 
+                   value="${escapeHtml(data.busId || "")}" 
+                   required min="1">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Seat Number</label>
+            <input class="form-control" name="seatNumber" 
+                   value="${escapeHtml(data.seatNumber || "")}" 
+                   required>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Availability</label>
+            <select class="form-select" name="isAvailable" required>
+                <option value="true" ${
+                    data.isAvailable === true || data.isAvailable === "true"
+                        ? "selected"
+                        : ""
+                }>
+                    Available
+                </option>
+                <option value="false" ${
+                    data.isAvailable === false || data.isAvailable === "false"
+                        ? "selected"
+                        : ""
+                }>
+                    Unavailable
+                </option>
+            </select>
+        </div>
+    </div>
+    `;
+
+                    case "bookings":
+                        return `
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">User ID</label>
+                <input class="form-control" type="number" name="userId" value="${escapeHtml(
+                    data.userId || ""
+                )}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Seat ID</label>
+                <input class="form-control" type="number" name="seatId" value="${escapeHtml(
+                    data.seatId || ""
+                )}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Route ID</label>
+                <input class="form-control" type="number" name="routeId" value="${escapeHtml(
+                    data.routeId || ""
+                )}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Booking Date</label>
+                <input class="form-control" type="date" name="bookingDate" value="${escapeHtml(
+                    data.bookingDate || ""
+                )}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status" required>
+                    <option value="confirmed" ${
+                        data.status === "confirmed" ? "selected" : ""
+                    }>Confirmed</option>
+                    <option value="pending" ${
+                        data.status === "pending" ? "selected" : ""
+                    }>Pending</option>
+                    <option value="cancelled" ${
+                        data.status === "cancelled" ? "selected" : ""
+                    }>Cancelled</option>
+                </select>
+            </div>
+        </div>
+    `;
+
+                    default:
+                        return `<p>No form available for this entity.</p>`;
+                }
+            }
+            async function createItem(event) {
+                event.preventDefault();
+                const form = event.target;
+                const submitBtn = document.getElementById("modalSubmitBtn");
+                const spinner = document.getElementById("submitSpinner");
+                const submitText = document.getElementById("modalSubmitText");
+
+                try {
+                    // Disable button and show spinner
+                    if (submitBtn) submitBtn.disabled = true;
+                    if (spinner) spinner.classList.remove("d-none");
+                    if (submitText)
+                        submitText.textContent = isEdit
+                            ? "Updating..."
+                            : "Creating...";
+
+                    const formData = new FormData(form);
+                    let data = Object.fromEntries(formData.entries());
+
+                    // Special handling for seats data
+                    if (currentEntity === "seats") {
+                        data = {
+                            busId: parseInt(data.busId),
+                            seatNumber: data.seatNumber,
+                            isAvailable: data.isAvailable === "true",
+                        };
+                    }
+
+                    // For updates, include the ID
+                    if (isEdit) {
+                        data[ID_FIELDS[currentEntity]] = editId;
+                    }
+
+                    const url = isEdit
+                        ? `${API_BASE}/${currentEntity}/${editId}`
+                        : `${API_BASE}/${currentEntity}`;
+
+                    const method = isEdit ? "PUT" : "POST";
+
+                    const res = await fetch(url, {
+                        method,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                        },
+                        body: JSON.stringify(data),
+                    });
+
+                    const responseData = await res.json();
+
+                    if (!res.ok) {
+                        if (responseData.errors) {
+                            const errorMessages = Object.values(
+                                responseData.errors
+                            )
+                                .flat()
+                                .join("\n");
+                            throw new Error(errorMessages);
+                        }
+                        throw new Error(
+                            responseData.message || `${method} request failed`
+                        );
+                    }
+
+                    // Success - close modal and refresh data
+                    const modal = bootstrap.Modal.getInstance(
+                        document.getElementById("createModal")
+                    );
+                    if (modal) modal.hide();
+
+                    showSuccess(
+                        `${capitalize(currentEntity)} ${
+                            isEdit ? "updated" : "created"
+                        } successfully`
+                    );
+                    fetchData();
+                } catch (e) {
+                    console.error("Create/Update error:", e);
+                    showError("Error: " + e.message);
+                } finally {
+                    // Re-enable button and hide spinner
+                    if (submitBtn) submitBtn.disabled = false;
+                    if (spinner) spinner.classList.add("d-none");
+                    if (submitText)
+                        submitText.textContent = isEdit ? "Update" : "Create";
+                }
+                return false;
+            }
+            async function editItem(id) {
+                if (!id || id === "undefined" || id === "null") {
+                    console.error("Invalid ID for edit:", id);
+                    showError("Cannot edit - invalid ID");
+                    return;
+                }
+
+                isEdit = true;
+                editId = id;
+
+                try {
+                    const res = await fetch(
+                        `${API_BASE}/${currentEntity}/${id}`,
+                        {
+                            headers: { Accept: "application/json" },
+                        }
+                    );
+
+                    if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({}));
+                        throw new Error(
+                            errorData.message || "Failed to fetch item"
+                        );
+                    }
+
+                    const data = await res.json();
+
+                    // Update modal
+                    document.getElementById(
+                        "createModalLabel"
+                    ).textContent = `Edit ${capitalize(currentEntity)} ${
+                        ID_FIELDS[currentEntity] || "ID"
+                    } ${id}`;
+
+                    // Update submit button text
+                    const submitText =
+                        document.getElementById("modalSubmitText");
+                    if (submitText) submitText.textContent = "Update";
+
+                    document.getElementById("createModalBody").innerHTML =
+                        getFormFields(currentEntity, data);
+
+                    // Show modal
+                    new bootstrap.Modal(
+                        document.getElementById("createModal")
+                    ).show();
+                } catch (e) {
+                    console.error("Edit error:", e);
+                    showError("Error: " + e.message);
+                }
+            }
+
+            async function deleteItem(id) {
+                if (!id || id === "undefined" || id === "null") {
+                    console.error("Invalid ID for deletion:", id);
+                    showError("Cannot delete - invalid ID");
+                    return;
+                }
+
+                if (
+                    !confirm(
+                        `Are you sure you want to delete this ${currentEntity}?`
+                    )
+                )
+                    return;
+
+                try {
+                    const res = await fetch(
+                        `${API_BASE}/${currentEntity}/${id}`,
+                        {
+                            method: "DELETE",
+                            headers: { Accept: "application/json" },
+                        }
+                    );
+
+                    if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({}));
+                        throw new Error(errorData.message || "Delete failed");
+                    }
+
+                    showSuccess(
+                        `${capitalize(currentEntity)} deleted successfully`
+                    );
+                    fetchData();
+                } catch (e) {
+                    console.error("Delete error:", e);
+                    showError("Error: " + e.message);
+                }
+            }
+
+            // Helper functions
+            function capitalize(str) {
+                return str.charAt(0).toUpperCase() + str.slice(1);
+            }
+
+            function escapeHtml(text) {
+                if (text === null || text === undefined) return "";
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            async function logout() {
+                try {
+                    // First ensure we have a CSRF cookie if using Sanctum
+                    await fetch("http://localhost:8000/sanctum/csrf-cookie", {
+                        credentials: "include",
+                    });
+
+                    // Then make the logout request
+                    const response = await fetch(
+                        "http://localhost:8000/api/admin/logout",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Accept: "application/json",
+                                Authorization: `Bearer ${localStorage.getItem(
+                                    "authToken"
+                                )}`, // If using token auth
+                            },
+                            credentials: "include", // Important for session cookies
+                        }
+                    );
+
+                    if (response.ok) {
+                        // Clear all client-side storage
+                        localStorage.clear();
+                        sessionStorage.clear();
+
+                        // Redirect to login page
+                        window.location.href = "/login.html";
+                    } else {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || "Logout failed");
+                    }
+                } catch (error) {
+                    console.error("Logout error:", error);
+                    showError("Error during logout: " + error.message);
+
+                    // Still clear storage and redirect even if error
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = "/login.html";
+                }
+            }
+        </script>
+    </body>
+</html>

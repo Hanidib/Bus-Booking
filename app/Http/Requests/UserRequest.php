@@ -23,10 +23,13 @@ class UserRequest extends FormRequest
         ];
 
         if ($this->isMethod('post')) {
+            // For new user creation
             $rules['email'] = 'required|email|unique:users,email';
             $rules['password'] = 'required|string|min:6|confirmed';
-        } elseif ($this->isMethod('put') || $this->isMethod('patch')) {
-            $rules['email'] = 'required|email|unique:users,email,' . $this->userId . ',userId';
+        } else {
+            // For user updates
+            $userId = $this->route('id') ?? $this->userId;
+            $rules['email'] = 'required|email|unique:users,email,' . $userId . ',userId';
             $rules['password'] = 'nullable|string|min:6|confirmed';
         }
 

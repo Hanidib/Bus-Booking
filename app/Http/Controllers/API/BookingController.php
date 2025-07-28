@@ -2,41 +2,78 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Requests\BookingRequest;
 use App\Models\Booking;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BookingRequest;
+use App\Models\Seat;
+use App\Models\Pnr;
+
+
 
 class BookingController extends Controller
 {
     public function index()
     {
-        return Booking::with(['user', 'seat'])->get();
+        return response()->json(Booking::with(['user', 'seat.bus', 'route'])->get());
     }
+
 
     public function store(BookingRequest $request)
     {
-        $booking = Booking::create($request->validated());
-        return response()->json(['message' => 'Booking created', 'data' => $booking], 201);
+        $validated = $request->validated();
+
+        // 🔍 Check if the seat is available
+        $seat = Seat::find($validated['seatId']);
+        if (!$seat || !$seat->isAvailable) {
+            return response()->json([
+                'message' => 'This seat is already booked or does not exist.'
+            ], 400); // Bad Request
+        }
+
+        // ✅ Create booking
+        $booking = Booking::create([
+            'userId' => $validated['userId'],
+            'routeId' => $validated['routeId'],
+            'seatId' => $validated['seatId'],
+            'bookingDate' => now(),
+            'status' => 'confirmed',
+        ]);
+
+        // ❌ Mark seat as unavailable
+        $seat->isAvailable = false;
+        $seat->save();
+
+        // ✅ Create PNR
+        $pnr = Pnr::create([
+            'bookingId' => $booking->bookingId,
+            'pnrCode' => strtoupper(uniqid('PNR')),
+            'issuedAt' => now()
+        ]);
+
+        return response()->json([
+            'booking' => $booking,
+            'pnr' => $pnr
+        ], 201);
     }
 
-    public function show($id)
+
+
+    public function show(Booking $booking)
     {
-        $booking = Booking::with(['user', 'seat'])->findOrFail($id);
+        return response()->json($booking->load(['user', 'seat', 'route']));
+    }
+
+    public function update(BookingRequest $request, Booking $booking)
+    {
+        $booking->update($request->validated());
         return response()->json($booking);
     }
 
-    public function update(BookingRequest $request, $id)
+    public function destroy(Booking $booking)
     {
-        $booking = Booking::findOrFail($id);
-        $booking->update($request->validated());
-        return response()->json(['message' => 'Booking updated', 'data' => $booking]);
-    }
 
-    public function destroy($id)
-    {
-        $booking = Booking::findOrFail($id);
+        // ❌ Delete booking
         $booking->delete();
-        return response()->json(['message' => 'Booking deleted']);
+        return response()->json(['message' => 'Booking has been deleted'], 200);
     }
 }

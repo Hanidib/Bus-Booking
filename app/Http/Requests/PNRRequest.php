@@ -16,6 +16,7 @@ class PnrRequest extends FormRequest
         return [
             'bookingId' => 'required|exists:bookings,bookingId',
             'pnrCode' => 'required|unique:pnrs,pnrCode',
+
         ];
     }
 }

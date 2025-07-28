@@ -17,9 +17,11 @@ return new class extends Migration
             $table->string('destination');
             $table->date('departureDate');
             $table->time('departureTime');
+            $table->integer('availableSeats');
             $table->timestamps();
         });
     }
+
 
     /**
      * Reverse the migrations.

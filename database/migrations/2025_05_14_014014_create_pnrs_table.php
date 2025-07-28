@@ -13,14 +13,15 @@ return new class extends Migration
     {
         Schema::create('pnrs', function (Blueprint $table) {
             $table->id('pnrId');
-
             $table->unsignedBigInteger('bookingId');
-            $table->foreign('bookingId')->references('bookingId')->on('bookings')->onDelete('cascade');
-
             $table->string('pnrCode')->unique();
+            $table->date('issuedAt');
             $table->timestamps();
+
+            $table->foreign('bookingId')->references('bookingId')->on('bookings')->onDelete('cascade');
         });
     }
+
 
     /**
      * Reverse the migrations.

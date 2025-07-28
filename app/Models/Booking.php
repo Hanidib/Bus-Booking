@@ -14,21 +14,28 @@ class Booking extends Model
     protected $fillable = [
         'userId',
         'seatId',
+        'routeId',
         'bookingDate',
+        'status',
     ];
 
     public function user()
     {
-        return $this->belongsTo(User::class, 'userId', 'userId');
+        return $this->belongsTo(User::class, 'userId');
     }
 
     public function seat()
     {
-        return $this->belongsTo(Seat::class, 'seatId', 'seatId');
+        return $this->belongsTo(Seat::class, 'seatId');
+    }
+
+    public function route()
+    {
+        return $this->belongsTo(Route::class, 'routeId');
     }
 
     public function pnr()
     {
-        return $this->hasOne(Pnr::class, 'bookingId', 'bookingId');
+        return $this->hasOne(Pnr::class, 'bookingId');
     }
 }

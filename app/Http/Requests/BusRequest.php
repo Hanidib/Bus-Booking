@@ -13,13 +13,17 @@ class BusRequest extends FormRequest
 
     public function rules(): array
     {
+        // Get the current bus ID if we're updating
+        $busId = $this->route('bus') ? $this->route('bus')->busId : null;
+
         return [
-            'busNumber' => 'required|string|max:50|unique:buses,busNumber',
+            'busNumber' => 'required|string|max:50|unique:buses,busNumber,' . $busId . ',busId',
             'busType' => 'required|string|max:50',
             'totalSeats' => 'required|integer|min:1',
-            'status' => 'required|string|in:active,maintenance,inactive',
+            'routeId' => 'required|exists:routes,routeId',
         ];
     }
+
     public function messages(): array
     {
         return [
@@ -33,9 +37,8 @@ class BusRequest extends FormRequest
             'totalSeats.required' => 'The total seats are required.',
             'totalSeats.integer' => 'The total seats must be an integer.',
             'totalSeats.min' => 'The total seats must be at least 1.',
-            'status.required' => 'The status is required.',
-            'status.string' => 'The status must be a string.',
-            'status.in' => 'The selected status is invalid.',
+            'routeId.required' => 'The route ID is required.',
+            'routeId.exists' => 'The selected route does not exist.',
         ];
     }
 }

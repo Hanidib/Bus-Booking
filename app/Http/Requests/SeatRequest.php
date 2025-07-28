@@ -14,14 +14,19 @@ class SeatRequest extends FormRequest
 
     public function rules(): array
     {
+        $seatId = $this->route('seat') ? $this->route('seat')->seatId : null;
+
         return [
             'busId' => 'required|exists:buses,busId',
             'seatNumber' => [
                 'required',
                 'string',
-                Rule::unique('seats')->where('busId', $this->busId)->ignore($this->seatId, 'seatId')
+                'max:10',
+                Rule::unique('seats')->where(function ($query) {
+                    return $query->where('busId', $this->busId);
+                })->ignore($seatId, 'seatId'),
             ],
-            'isAvailable' => 'sometimes|boolean',
+            'isAvailable' => 'required|boolean',
         ];
     }
 }

@@ -16,9 +16,11 @@ class Route extends Model
         'destination',
         'departureDate',
         'departureTime',
+        'availableSeats',
+
     ];
-    public function bus()
+    public function buses()
     {
-        return $this->belongsTo(Bus::class, 'busId', 'busId');
+        return $this->hasMany(Bus::class, 'routeId', 'routeId'); // Adjust for your relationship
     }
 }

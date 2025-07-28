@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class PNR extends Model
+class Pnr extends Model
 {
     use HasFactory;
 
@@ -16,10 +16,12 @@ class PNR extends Model
     protected $fillable = [
         'bookingId',
         'pnrCode',
+        'issuedAt',
+
     ];
 
     public function booking()
     {
-        return $this->belongsTo(Booking::class, 'bookingId', 'bookingId');
+        return $this->belongsTo(Booking::class, 'bookingId');
     }
 }

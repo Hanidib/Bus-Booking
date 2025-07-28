@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Login | Bus Booking System</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+            <h2 class="text-2xl font-bold text-center mb-6">Login</h2>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700"
+                        >Email</label
+                    >
+                    <input
+                        id="email"
+                        type="email"
+                        name="email"
+                        required
+                        class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your email"
+                    />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700"
+                        >Password</label
+                    >
+                    <input
+                        id="password"
+                        type="password"
+                        name="password"
+                        required
+                        class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your password"
+                    />
+                </div>
+                <div
+                    id="errorMessage"
+                    class="text-red-600 text-sm hidden"
+                ></div>
+                <button
+                    type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    Login
+                </button>
+
+                <div class="text-center mt-4">
+                    <p class="text-sm text-gray-600">
+                        Don't have an account?
+                        <a
+                            href="/register.html"
+                            class="font-medium text-blue-600 hover:text-blue-500"
+                        >
+                            Register here
+                        </a>
+                    </p>
+                </div>
+            </form>
+        </div>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                // Check if user is already logged in
+                if (localStorage.getItem("token")) {
+                    const userType = localStorage.getItem("userType");
+                    window.location.href =
+                        userType === "admin" ? "/dashboard.html" : "/booking";
+                }
+
+                async function handleLogin(event) {
+                    event.preventDefault();
+
+                    const email = document.getElementById("email").value.trim();
+                    const password = document
+                        .getElementById("password")
+                        .value.trim();
+                    const errorDiv = document.getElementById("errorMessage");
+                    errorDiv.classList.add("hidden");
+
+                    // Show loading state
+                    const submitBtn = event.target.querySelector(
+                        'button[type="submit"]'
+                    );
+                    const originalText = submitBtn.textContent;
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML =
+                        '<span class="animate-spin">⏳</span> Logging in...';
+
+                    const baseUrl = "http://localhost:8000/api";
+                    const headers = {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    };
+
+                    try {
+                        // Try admin login first
+                        let response = await fetch(`${baseUrl}/admin/login`, {
+                            method: "POST",
+                            headers,
+                            body: JSON.stringify({ email, password }),
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            localStorage.setItem("token", data.token);
+                            localStorage.setItem("userType", "admin");
+                            localStorage.setItem(
+                                "userId",
+                                data.id || data.admin?.id
+                            );
+                            window.location.href = "/dashboard.html";
+                            return;
+                        }
+
+                        // Try user login if admin login fails
+                        response = await fetch(`${baseUrl}/user/login`, {
+                            method: "POST",
+                            headers,
+                            body: JSON.stringify({ email, password }),
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            localStorage.setItem("token", data.token);
+                            localStorage.setItem("userType", "user");
+                            localStorage.setItem(
+                                "userId",
+                                data.id || data.user?.userId
+                            );
+                            window.location.href = "/booking";
+                            return;
+                        }
+
+                        // Handle specific error messages from server
+                        const errorData = await response
+                            .json()
+                            .catch(() => ({}));
+                        throw new Error(
+                            errorData.message || "Invalid email or password"
+                        );
+                    } catch (err) {
+                        errorDiv.textContent =
+                            err.message || "Login failed. Please try again.";
+                        errorDiv.classList.remove("hidden");
+                    } finally {
+                        // Reset button state
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalText;
+                    }
+                }
+
+                document
+                    .getElementById("loginForm")
+                    .addEventListener("submit", handleLogin);
+            });
+        </script>
+    </body>
+</html>
