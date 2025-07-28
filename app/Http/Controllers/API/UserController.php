@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Http\Requests\UserRequest;
 use Illuminate\Support\Facades\Hash;
@@ -27,23 +26,23 @@ class UserController extends Controller
     {
         // Authorization: Users can only view their own data
         $user = User::findOrFail($id);
-        
+
         if (auth()->user()->userId !== $user->userId) {
             return response()->json(['error' => 'Unauthorized. You can only view your own profile.'], 403);
         }
-        
+
         return $user;
     }
 
     public function update(UserRequest $request, $id)
     {
         $user = User::findOrFail($id);
-        
+
         // Authorization: Users can only update their own data
         if (auth()->user()->userId !== $user->userId) {
             return response()->json(['error' => 'Unauthorized. You can only update your own profile.'], 403);
         }
-        
+
         $data = $request->validated();
 
         if (!empty($data['password'])) {
@@ -59,12 +58,12 @@ class UserController extends Controller
     public function destroy($id)
     {
         $user = User::findOrFail($id);
-        
+
         // Authorization: Users can only delete their own account
         if (auth()->user()->userId !== $user->userId) {
             return response()->json(['error' => 'Unauthorized. You can only delete your own account.'], 403);
         }
-        
+
         $user->delete();
 
         return response()->json(['message' => 'User deleted']);
