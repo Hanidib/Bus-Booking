@@ -20,47 +20,14 @@ class BookingController extends Controller
 
     public function store(BookingRequest $request)
     {
-        $validated = $request->validated();
-
-        // 🔍 Check if the seat is available
-        $seat = Seat::find($validated['seatId']);
-        if (!$seat || !$seat->isAvailable) {
-            return response()->json([
-                'message' => 'This seat is already booked or does not exist.'
-            ], 400); // Bad Request
-        }
-
-        // ✅ Create booking
-        $booking = Booking::create([
-            'userId' => $validated['userId'],
-            'routeId' => $validated['routeId'],
-            'seatId' => $validated['seatId'],
-            'bookingDate' => now(),
-            'status' => 'confirmed',
-        ]);
-
-        // ❌ Mark seat as unavailable
-        $seat->isAvailable = false;
-        $seat->save();
-
-        // ✅ Create PNR
-        $pnr = Pnr::create([
-            'bookingId' => $booking->bookingId,
-            'pnrCode' => strtoupper(uniqid('PNR')),
-            'issuedAt' => now()
-        ]);
-
-        return response()->json([
-            'booking' => $booking,
-            'pnr' => $pnr
-        ], 201);
+        $booking = Booking::create($request->validated());
+        return response()->json(['message' => 'Booking created', 'data' => $booking], 201);
     }
 
-
-
-    public function show(Booking $booking)
+    public function show($id)
     {
-        return response()->json($booking->load(['user', 'seat', 'route']));
+        $booking = Booking::with(['user', 'seat'])->findOrFail($id);
+        return response()->json($booking);
     }
 
     public function update(BookingRequest $request, Booking $booking)
