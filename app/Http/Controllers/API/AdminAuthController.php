@@ -59,8 +59,24 @@ class AdminAuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->tokens()->delete();
+        // For API token logout
+        if ($request->user()) {
+            $request->user()->tokens()->delete();
+        }
 
-        return response()->json(['message' => 'Logged out']);
+        // For session logout
+        Auth::guard('web')->logout();
+
+        return response()->json([
+            'message' => 'Successfully logged out'
+        ]);
+        // Get the authenticated admin and delete their tokens
+        $admin = $request->user();
+        if ($admin instanceof Admin) {
+            $admin->tokens()->delete();
+            return response()->json(['message' => 'Admin logged out successfully']);
+        }
+
+        return response()->json(['error' => 'Invalid admin session'], 401);
     }
 }
